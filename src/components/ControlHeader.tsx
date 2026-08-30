@@ -59,7 +59,7 @@ const ALGORITHMS: { id: AlgorithmType; name: string; short: string; badge: strin
     name: 'Shortest Remaining Time First', 
     short: 'SRTF', 
     badge: 'Preemptive',
-    desc: 'Preempts if a newly arrived process needs less time'
+    desc: 'Preempts if a newly arrived process needs less execution time'
   },
   { 
     id: 'RR', 
@@ -116,56 +116,52 @@ export const ControlHeader: React.FC<ControlHeaderProps> = ({
   const currentAlgoObj = ALGORITHMS.find((a) => a.id === algorithm) || ALGORITHMS[0];
 
   return (
-    <header className="space-y-4">
+    <header className="space-y-4 font-sans">
       
-      {/* Top Navbar */}
-      <div className={`p-4 sm:p-5 rounded-2xl border ${colors.border} ${colors.bgCard} shadow-lg transition-all`}>
+      {/* 1. Main Page Header Banner */}
+      <div className={`p-4 sm:p-5 rounded-2xl border ${colors.border} ${colors.bgCard} shadow-sm`}>
         <div className="flex flex-wrap items-center justify-between gap-4">
           
-          {/* Logo & Title */}
+          {/* Logo & Main Title (28–32px) */}
           <div className="flex items-center gap-3.5">
-            <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-2xl bg-cyan-600/20 border border-cyan-500/50 text-cyan-400 flex items-center justify-center font-extrabold text-xl shadow-[0_0_20px_rgba(6,182,212,0.3)] shrink-0">
+            <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-cyan-600/20 border border-cyan-500/40 text-cyan-400 flex items-center justify-center font-extrabold text-xl shrink-0">
               ⚡
             </div>
             <div>
-              <h1 className={`text-2xl sm:text-3xl font-extrabold tracking-tight font-sans ${colors.textPrimary}`}>
+              <h1 className={`text-2xl sm:text-3xl font-extrabold tracking-tight ${colors.textPrimary}`}>
                 CPU Scheduler Simulator
               </h1>
               <p className={`text-xs sm:text-sm ${colors.textMuted} mt-0.5 font-medium`}>
-                Interactive operating system scheduling platform with step-by-step calculations and visual decision explanations
+                Interactive operating system CPU scheduling laboratory & visual decision simulator
               </p>
             </div>
           </div>
 
-          {/* Action Buttons: Compare, Guide, Theme */}
-          <div className="flex flex-wrap items-center gap-2 sm:gap-2.5">
-            
-            {/* Compare 6 Algorithms Button */}
+          {/* Action Header Buttons */}
+          <div className="flex flex-wrap items-center gap-2">
             <button
               onClick={onOpenCompare}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold border ${colors.border} ${colors.textPrimary} hover:border-cyan-400 bg-white/5 backdrop-blur-md transition-all active:scale-95`}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold border ${colors.border} ${colors.textPrimary} hover:border-cyan-400 bg-slate-800/60 transition-all active:scale-95`}
               title="Compare all 6 algorithms side by side on this workload"
             >
               <BarChart3 className="w-4 h-4 text-cyan-400" />
               <span>Compare All 6</span>
             </button>
 
-            {/* OS Formulas & Guide Button */}
             <button
               onClick={onOpenTheory}
-              className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold border border-cyan-500/50 bg-cyan-600/20 text-cyan-300 hover:bg-cyan-600/30 backdrop-blur-md transition-all active:scale-95 shadow-[0_0_10px_rgba(6,182,212,0.2)]`}
+              className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold border border-cyan-500/50 bg-cyan-600/20 text-cyan-300 hover:bg-cyan-600/30 transition-all active:scale-95`}
               title="Formulas, Step-by-Step Math Guide & OS Concepts"
             >
               <BookOpen className="w-4 h-4 text-cyan-400" />
               <span>OS Formulas & Guide</span>
             </button>
 
-            {/* Theme Selector */}
             <div className="relative">
               <select
                 value={theme}
                 onChange={(e) => setTheme(e.target.value as ThemeMode)}
-                className={`text-xs font-bold px-3 py-1.5 rounded-xl border ${colors.border} ${colors.bgInput} backdrop-blur-md cursor-pointer outline-none appearance-none pr-7 transition-all`}
+                className={`text-xs font-bold px-3 py-1.5 rounded-xl border ${colors.border} ${colors.bgInput} cursor-pointer outline-none appearance-none pr-7 transition-all`}
                 title="Select Theme"
                 aria-label="Theme selector"
               >
@@ -178,26 +174,24 @@ export const ControlHeader: React.FC<ControlHeaderProps> = ({
                 ▼
               </div>
             </div>
-
           </div>
 
         </div>
       </div>
 
-      {/* Algorithm Selection (Dropdown Menu) */}
-      <div className={`p-4 sm:p-5 rounded-2xl border ${colors.border} ${colors.bgCard} shadow-md transition-all`}>
-        <div className="flex flex-wrap items-center justify-between gap-3 mb-3.5">
-          <div className="flex items-center gap-2">
-            <h2 className={`text-sm sm:text-base font-bold uppercase tracking-wider ${colors.textPrimary} font-sans`}>
-              Choose Scheduling Algorithm
+      {/* 2. Algorithm Configuration Section */}
+      <div className={`p-4 sm:p-5 rounded-2xl border ${colors.border} ${colors.bgCard} shadow-sm space-y-3.5`}>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 className={`text-lg sm:text-xl font-bold ${colors.textPrimary}`}>
+              Scheduling Configuration
             </h2>
+            <p className={`text-xs ${colors.textMuted} mt-0.5`}>
+              Select the CPU scheduling policy and configure its parameters
+            </p>
           </div>
-          <span className={`text-xs ${colors.textMuted}`}>
-            Select an algorithm from the dropdown to recalculate the schedule instantly
-          </span>
         </div>
 
-        {/* Dropdown & Overview Card */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3 items-center">
           
           {/* Dropdown Selector */}
@@ -222,10 +216,10 @@ export const ControlHeader: React.FC<ControlHeaderProps> = ({
             </div>
           </div>
 
-          {/* Selected Algorithm Details Card with Solid High-Contrast Badge */}
+          {/* Algorithm Badge & Summary Card */}
           <div className={`md:col-span-2 p-3 px-4 rounded-xl border ${colors.border} ${colors.bgCardElevated} flex flex-wrap items-center justify-between gap-2.5`}>
             <div className="flex items-center gap-2.5">
-              <span className={`text-xs px-2.5 py-1 rounded-md font-extrabold text-white shadow-xs ${
+              <span className={`text-xs px-2.5 py-1 rounded-md font-bold text-white ${
                 currentAlgoObj.badge === 'Preemptive'
                   ? 'bg-amber-600'
                   : 'bg-blue-700'
@@ -233,7 +227,7 @@ export const ControlHeader: React.FC<ControlHeaderProps> = ({
                 {currentAlgoObj.badge}
               </span>
               <div>
-                <span className={`font-extrabold text-sm ${colors.textPrimary}`}>
+                <span className={`font-bold text-sm ${colors.textPrimary}`}>
                   {currentAlgoObj.name}
                 </span>
                 <p className={`text-xs ${colors.textMuted} mt-0.5`}>
@@ -241,24 +235,18 @@ export const ControlHeader: React.FC<ControlHeaderProps> = ({
                 </p>
               </div>
             </div>
-
-            <div className="flex items-center gap-1 text-xs">
-              <span className={`text-xs font-mono px-2 py-0.5 rounded border ${colors.tagBg}`}>
-                ID: {currentAlgoObj.short}
-              </span>
-            </div>
           </div>
 
         </div>
 
-        {/* Conditional Algorithm Parameters (Only shown for relevant algorithms) */}
+        {/* Algorithm-Specific Parameters ONLY */}
         {(isRoundRobin || isPriorityAlgo) && (
-          <div className="mt-3.5 pt-3.5 border-t border-inherit flex flex-wrap items-center gap-4 text-xs font-medium">
+          <div className="pt-3 border-t border-inherit flex flex-wrap items-center gap-4 text-xs font-medium">
             
-            {/* Round Robin Time Quantum Slider/Input */}
+            {/* Round Robin Time Quantum Controls */}
             {isRoundRobin && (
               <div className="flex items-center gap-2.5 p-2 px-3 rounded-xl bg-cyan-500/15 border border-cyan-500/30">
-                <span className="font-bold text-cyan-300 dark:text-cyan-200">
+                <span className="font-bold text-cyan-300">
                   Time Quantum (q):
                 </span>
                 <input
@@ -270,19 +258,15 @@ export const ControlHeader: React.FC<ControlHeaderProps> = ({
                   className="w-24 accent-cyan-400 cursor-pointer"
                   aria-label="Time Quantum"
                 />
-                <span className="font-extrabold text-sm text-cyan-300 dark:text-cyan-200 min-w-[32px]">
+                <span className="font-extrabold text-sm text-cyan-300 min-w-[32px]">
                   {quantum} {quantum === 1 ? 'unit' : 'units'}
-                </span>
-                <span className={`text-[11px] ${colors.textMuted}`}>
-                  (Each process runs at most {quantum} units before switching)
                 </span>
               </div>
             )}
 
-            {/* Priority Algorithm: Priority Rule & Anti-Starvation Aging */}
+            {/* Priority Rules & Aging */}
             {isPriorityAlgo && (
               <>
-                {/* Priority Rule */}
                 <div className="flex items-center gap-2">
                   <span className={`font-bold ${colors.textPrimary}`}>Priority Rule:</span>
                   <select
@@ -296,7 +280,6 @@ export const ControlHeader: React.FC<ControlHeaderProps> = ({
                   </select>
                 </div>
 
-                {/* Anti-Starvation Aging Toggle */}
                 <div className="flex items-center gap-2.5 p-2 px-3 rounded-xl bg-amber-500/15 border border-amber-500/30">
                   <label className="flex items-center gap-1.5 cursor-pointer select-none">
                     <input
@@ -322,7 +305,7 @@ export const ControlHeader: React.FC<ControlHeaderProps> = ({
                         className={`w-14 p-1 rounded-lg border ${colors.border} ${colors.bgInput} text-center font-bold text-amber-300`}
                         aria-label="Aging Threshold"
                       />
-                      <span className={colors.textSecondary}>waiting units</span>
+                      <span className={colors.textSecondary}>units</span>
                     </div>
                   )}
                 </div>
@@ -334,19 +317,29 @@ export const ControlHeader: React.FC<ControlHeaderProps> = ({
 
       </div>
 
-      {/* Playback Controls & Time Banner */}
-      <div className={`p-4 rounded-2xl border ${colors.border} ${colors.bgCard} shadow-md flex flex-wrap items-center justify-between gap-3`}>
+      {/* 3. Primary Action & Playback Controls Bar */}
+      <div className={`p-4 rounded-2xl border ${colors.border} ${colors.bgCard} shadow-sm flex flex-wrap items-center justify-between gap-3`}>
         
-        {/* Left: Playback Controls (Play, Step Backward, Step Forward, Reset, Solve Instantly) */}
-        <div className="flex flex-wrap items-center gap-2">
+        {/* Left: Prominent Primary RUN SIMULATION + Step Secondary Controls */}
+        <div className="flex flex-wrap items-center gap-2.5">
 
-          {/* Play / Pause */}
+          {/* Primary Action Button: RUN SIMULATION */}
+          <button
+            onClick={onSolveInstantly}
+            className="p-3 px-5 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white font-extrabold text-sm flex items-center gap-2 transition-all active:scale-98 shadow-md"
+            title="Run complete simulation and display final schedule"
+          >
+            <Zap className="w-4 h-4 text-amber-300 fill-amber-300" />
+            <span>RUN SIMULATION</span>
+          </button>
+
+          {/* Play / Pause Toggle */}
           <button
             onClick={onTogglePlay}
-            className={`p-2.5 px-4 rounded-xl font-extrabold text-xs flex items-center gap-2 transition-all active:scale-95 shadow-md ${
+            className={`p-2.5 px-4 rounded-xl font-bold text-xs flex items-center gap-2 transition-all active:scale-95 ${
               isPlaying 
-                ? 'bg-amber-500 hover:bg-amber-400 text-slate-950 shadow-[0_0_15px_rgba(245,158,11,0.4)]' 
-                : 'bg-emerald-500 hover:bg-emerald-400 text-slate-950 shadow-[0_0_15px_rgba(16,185,129,0.4)]'
+                ? 'bg-amber-600 hover:bg-amber-500 text-white' 
+                : 'bg-emerald-600 hover:bg-emerald-500 text-white'
             }`}
           >
             {isPlaying ? (
@@ -357,7 +350,7 @@ export const ControlHeader: React.FC<ControlHeaderProps> = ({
             ) : (
               <>
                 <Play className="w-4 h-4 fill-current" />
-                <span>Play Simulation</span>
+                <span>Play</span>
               </>
             )}
           </button>
@@ -367,7 +360,7 @@ export const ControlHeader: React.FC<ControlHeaderProps> = ({
             <button
               onClick={onStepBackward}
               disabled={currentTick === 0}
-              className={`p-2.5 px-3 rounded-xl border ${colors.border} ${colors.bgInput} font-bold text-xs flex items-center gap-1 hover:brightness-110 active:scale-95 transition-all disabled:opacity-40 disabled:cursor-not-allowed ${colors.textSecondary}`}
+              className={`p-2.5 px-3 rounded-xl border ${colors.border} ${colors.bgInput} font-semibold text-xs flex items-center gap-1 hover:brightness-110 active:scale-95 transition-all disabled:opacity-40 disabled:cursor-not-allowed ${colors.textSecondary}`}
               title="Step Backward -1 tick"
             >
               <ChevronLeft className="w-4 h-4" />
@@ -379,8 +372,8 @@ export const ControlHeader: React.FC<ControlHeaderProps> = ({
           {onStepForward && (
             <button
               onClick={onStepForward}
-              className="p-2.5 px-3.5 rounded-xl border border-cyan-500/40 bg-cyan-600/20 text-cyan-300 font-bold text-xs flex items-center gap-1.5 hover:bg-cyan-600/30 active:scale-95 transition-all shadow-[0_0_10px_rgba(6,182,212,0.2)]"
-              title="Advance simulation by +1 time unit to observe decision"
+              className="p-2.5 px-3.5 rounded-xl border border-cyan-500/40 bg-cyan-600/20 text-cyan-300 font-bold text-xs flex items-center gap-1 hover:bg-cyan-600/30 active:scale-95 transition-all"
+              title="Advance simulation by +1 time unit"
             >
               <span>Step (+1 Tick)</span>
               <ChevronRight className="w-4 h-4 text-cyan-400" />
@@ -390,38 +383,26 @@ export const ControlHeader: React.FC<ControlHeaderProps> = ({
           {/* Reset */}
           <button
             onClick={onReset}
-            className={`p-2.5 px-3 rounded-xl border ${colors.border} ${colors.bgInput} font-bold text-xs flex items-center gap-1.5 hover:brightness-110 active:scale-95 transition-all ${colors.textSecondary}`}
+            className={`p-2.5 px-3 rounded-xl border ${colors.border} ${colors.bgInput} font-semibold text-xs flex items-center gap-1.5 hover:brightness-110 active:scale-95 transition-all ${colors.textSecondary}`}
             title="Reset Simulation Clock to 0"
           >
             <RotateCcw className="w-3.5 h-3.5" />
             <span>Reset</span>
           </button>
 
-          {/* Complete Full Simulation */}
-          <button
-            onClick={onSolveInstantly}
-            className="p-2.5 px-4 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-extrabold text-xs flex items-center gap-1.5 shadow-[0_0_15px_rgba(59,130,246,0.35)] active:scale-95 transition-all"
-            title="Calculate and display the complete schedule instantly"
-          >
-            <Zap className="w-4 h-4 text-amber-300 fill-amber-300" />
-            <span>⚡ Run Full Simulation</span>
-          </button>
-
         </div>
 
-        {/* Right: Simulation Speed & Current Time Display */}
+        {/* Right: Speed & Simulation Clock */}
         <div className="flex items-center gap-3">
-          
-          {/* Speed Selector */}
-          <div className="flex items-center gap-1.5 p-1.5 px-2 rounded-xl bg-white/5 border border-inherit text-xs">
-            <span className={`text-xs font-bold ${colors.textMuted}`}>Speed:</span>
+          <div className="flex items-center gap-1 p-1 px-2 rounded-xl bg-slate-800/60 border border-inherit text-xs">
+            <span className={`text-xs font-medium ${colors.textMuted}`}>Speed:</span>
             {[0.5, 1, 2, 4].map((spd) => (
               <button
                 key={spd}
                 onClick={() => onChangeSpeed(spd)}
                 className={`px-2 py-0.5 rounded-lg text-xs font-bold transition-all ${
                   speedMultiplier === spd
-                    ? 'bg-cyan-500 text-slate-950 font-extrabold shadow-xs'
+                    ? 'bg-cyan-600 text-white font-extrabold'
                     : `${colors.textSecondary} hover:bg-white/10`
                 }`}
               >
@@ -430,16 +411,14 @@ export const ControlHeader: React.FC<ControlHeaderProps> = ({
             ))}
           </div>
 
-          {/* Clock Time Display */}
           <div className="flex items-center gap-2 p-2 px-3.5 rounded-xl bg-cyan-600/20 border border-cyan-500/40 text-cyan-300">
             <Clock className="w-4 h-4 text-cyan-400" />
             <span className="text-xs font-bold">Time:</span>
-            <span className="font-extrabold text-base font-mono text-white dark:text-white">
+            <span className="font-extrabold text-base font-mono text-white">
               {currentTick}
             </span>
             <span className="text-xs font-medium text-cyan-400">units</span>
           </div>
-
         </div>
 
       </div>
