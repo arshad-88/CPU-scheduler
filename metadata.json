@@ -1,0 +1,6 @@
+{
+  "name": "CPU Scheduling Simulator",
+  "description": "Interactive CPU Scheduling Simulator with real-time multi-core Gantt charts, context switch overhead, starvation & aging, and 6 core scheduling algorithms comparison.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
