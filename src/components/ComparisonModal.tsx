@@ -3,7 +3,8 @@ import {
   BarChart3, 
   X, 
   Trophy, 
-  ArrowRight 
+  ArrowRight,
+  Info
 } from 'lucide-react';
 import { 
   ResponsiveContainer, 
@@ -53,7 +54,7 @@ export const ComparisonModal: React.FC<ComparisonModalProps> = ({
 }) => {
   const { colors, theme } = useTheme();
 
-  // Run all 6 core algorithms headlessly
+  // Run all 6 core algorithms headlessly on identical workload
   const comparisonResults = useMemo<AlgorithmComparisonResult[]>(() => {
     if (!isOpen || processes.length === 0) return [];
 
@@ -99,8 +100,10 @@ export const ComparisonModal: React.FC<ComparisonModalProps> = ({
     'Avg Response Time (RT)': r.kpis.avgResponseTime,
   }));
 
-  // Find lowest waiting time
-  const bestWT = Math.min(...comparisonResults.map((r) => r.kpis.avgWaitingTime));
+  // Find optimal values
+  const minWT = Math.min(...comparisonResults.map((r) => r.kpis.avgWaitingTime));
+  const minTAT = Math.min(...comparisonResults.map((r) => r.kpis.avgTurnaroundTime));
+  const minRT = Math.min(...comparisonResults.map((r) => r.kpis.avgResponseTime));
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-md animate-in fade-in duration-150">
@@ -113,11 +116,11 @@ export const ComparisonModal: React.FC<ComparisonModalProps> = ({
               <BarChart3 className="w-6 h-6" />
             </div>
             <div>
-              <h2 className={`text-lg sm:text-xl font-extrabold font-mono uppercase tracking-wider ${colors.textPrimary}`}>
+              <h2 className={`text-lg sm:text-xl font-extrabold font-sans uppercase tracking-wider ${colors.textPrimary}`}>
                 6-Algorithm Benchmark Comparison
               </h2>
               <p className={`text-xs ${colors.textMuted}`}>
-                Side-by-side performance evaluation on your current {processes.length} processes
+                Side-by-side performance evaluation on your current workload of {processes.length} processes
               </p>
             </div>
           </div>
@@ -135,7 +138,7 @@ export const ComparisonModal: React.FC<ComparisonModalProps> = ({
           
           {/* Comparison Bar Chart */}
           <div className={`p-5 rounded-xl border ${colors.border} ${colors.bgCardElevated}`}>
-            <h3 className={`text-sm font-bold font-mono uppercase mb-3 ${colors.textPrimary}`}>
+            <h3 className={`text-sm font-bold font-sans uppercase mb-3 ${colors.textPrimary}`}>
               Waiting Time vs. Turnaround Time Comparison (Lower is Better)
             </h3>
             <div className="h-72 w-full">
@@ -161,7 +164,7 @@ export const ComparisonModal: React.FC<ComparisonModalProps> = ({
             </div>
           </div>
 
-          {/* Detailed Comparison Table */}
+          {/* Detailed Benchmark Table */}
           <div className={`rounded-xl border ${colors.border} overflow-hidden shadow-sm`}>
             <div className="overflow-x-auto">
               <table className="w-full text-left text-sm font-mono border-collapse">
@@ -172,45 +175,51 @@ export const ComparisonModal: React.FC<ComparisonModalProps> = ({
                     <th className="py-3.5 px-4">Avg Turnaround Time</th>
                     <th className="py-3.5 px-4">Avg Response Time</th>
                     <th className="py-3.5 px-4">CPU Utilization</th>
+                    <th className="py-3.5 px-4">Context Switches</th>
                     <th className="py-3.5 px-4 text-right">Action</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-inherit">
                   {comparisonResults.map((result) => {
-                    const isOptimal = result.kpis.avgWaitingTime === bestWT;
+                    const isMinWT = result.kpis.avgWaitingTime === minWT;
+                    const isMinTAT = result.kpis.avgTurnaroundTime === minTAT;
 
                     return (
                       <tr key={result.algorithm} className="transition-colors hover:bg-black/5 dark:hover:bg-white/5">
                         <td className="py-3.5 px-4 font-bold">
                           <div className="flex items-center gap-2">
-                            {isOptimal && (
+                            {isMinWT && (
                               <Trophy className="w-4 h-4 text-yellow-400 shrink-0" />
                             )}
-                            <span className={isOptimal ? 'text-cyan-400 font-extrabold text-base' : colors.textPrimary}>
+                            <span className={isMinWT ? 'text-cyan-400 font-extrabold text-base' : colors.textPrimary}>
                               {result.algorithm}
                             </span>
-                            {isOptimal && (
+                            {isMinWT && (
                               <span className="text-[10px] px-2 py-0.5 rounded-full bg-yellow-500/20 text-yellow-300 font-extrabold border border-yellow-500/40">
-                                BEST
+                                BEST WT
                               </span>
                             )}
                           </div>
                         </td>
 
                         <td className="py-3.5 px-4 font-extrabold text-cyan-400 text-base">
-                          {result.kpis.avgWaitingTime} units
+                          {result.kpis.avgWaitingTime} u {isMinWT && '⭐'}
                         </td>
 
                         <td className="py-3.5 px-4 font-extrabold text-blue-400 text-base">
-                          {result.kpis.avgTurnaroundTime} units
+                          {result.kpis.avgTurnaroundTime} u {isMinTAT && '⭐'}
                         </td>
 
                         <td className="py-3.5 px-4 font-bold text-emerald-400">
-                          {result.kpis.avgResponseTime} units
+                          {result.kpis.avgResponseTime} u
                         </td>
 
                         <td className={`py-3.5 px-4 font-semibold ${colors.textSecondary}`}>
                           {result.kpis.cpuUtilization}%
+                        </td>
+
+                        <td className="py-3.5 px-4 font-bold text-rose-400">
+                          {result.kpis.totalContextSwitches}
                         </td>
 
                         <td className="py-3.5 px-4 text-right">
@@ -221,7 +230,7 @@ export const ComparisonModal: React.FC<ComparisonModalProps> = ({
                             }}
                             className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-bold ml-auto transition-colors shadow-xs active:scale-95"
                           >
-                            <span>Select</span>
+                            <span>Apply</span>
                             <ArrowRight className="w-3.5 h-3.5" />
                           </button>
                         </td>
@@ -231,6 +240,19 @@ export const ComparisonModal: React.FC<ComparisonModalProps> = ({
                 </tbody>
               </table>
             </div>
+          </div>
+
+          {/* Educational Trade-Off Summary */}
+          <div className="p-4 rounded-xl bg-cyan-500/10 border border-cyan-500/30 text-cyan-200 text-xs font-sans space-y-1.5">
+            <strong className="flex items-center gap-1.5 text-cyan-300 font-bold">
+              <Info className="w-4 h-4" /> Educational Trade-off Summary:
+            </strong>
+            <ul className="list-disc pl-5 space-y-1 text-[11px] opacity-90 leading-relaxed">
+              <li><strong>SJF / SRTF:</strong> Provably yields the minimum average waiting time, but requires knowing or estimating future burst durations (hard in real OS environments).</li>
+              <li><strong>Round Robin (RR):</strong> Provides excellent fairness and fast response times for interactive applications, but incurs context-switching overhead.</li>
+              <li><strong>FCFS:</strong> Simple non-preemptive scheduling, but vulnerable to the "Convoy Effect" where short processes get stuck behind a massive burst process.</li>
+              <li><strong>Priority:</strong> Ensures urgent tasks run first, but can cause starvation for low-priority tasks unless anti-starvation aging is enabled.</li>
+            </ul>
           </div>
 
         </div>

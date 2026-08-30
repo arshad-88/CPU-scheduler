@@ -3,7 +3,9 @@ import {
   ZoomIn, 
   ZoomOut, 
   Cpu,
-  Info
+  Info,
+  Clock,
+  Zap
 } from 'lucide-react';
 import { GanttSegment, CPUCore, Process } from '../types/scheduler';
 import { useTheme } from '../context/ThemeContext';
@@ -14,6 +16,7 @@ interface GanttTimelineProps {
   ganttHistory: GanttSegment[];
   currentTick: number;
   algorithm?: string;
+  contextSwitchTime?: number;
   selectedProcessId?: string | null;
   onSelectProcessId?: (id: string | null) => void;
 }
@@ -23,6 +26,7 @@ export const GanttTimeline: React.FC<GanttTimelineProps> = ({
   ganttHistory,
   currentTick,
   algorithm,
+  contextSwitchTime = 0,
   selectedProcessId,
   onSelectProcessId,
 }) => {
@@ -32,11 +36,11 @@ export const GanttTimeline: React.FC<GanttTimelineProps> = ({
   const [autoScroll, setAutoScroll] = useState<boolean>(true);
   const [hoveredSegment, setHoveredSegment] = useState<GanttSegment | null>(null);
 
-  // Filter out any CS (Context Switch) segments per user request
-  const cleanSegments = ganttHistory.filter((s) => !s.isContextSwitch && s.processId !== 'CS');
+  // Keep ALL segments (including CS context switches and CPU IDLE blocks)
+  const segments = ganttHistory;
 
-  const maxTick = Math.max(currentTick, ...cleanSegments.map((s) => s.endTick), 16);
-  const totalWidth = maxTick * zoomLevel + 100;
+  const maxTick = Math.max(currentTick, ...segments.map((s) => s.endTick), 16);
+  const totalWidth = maxTick * zoomLevel + 120;
 
   // Auto scroll to current simulation clock
   useEffect(() => {
@@ -59,8 +63,8 @@ export const GanttTimeline: React.FC<GanttTimelineProps> = ({
         <div className="flex items-center gap-2.5">
           <div>
             <div className="flex items-center gap-2">
-              <h2 className={`text-sm sm:text-base font-bold uppercase tracking-wider ${colors.textPrimary}`}>
-                Gantt Chart Timeline
+              <h2 className={`text-sm sm:text-base font-bold uppercase tracking-wider ${colors.textPrimary} font-sans`}>
+                Gantt Chart Execution Timeline
               </h2>
               {algorithm && (
                 <span className={`px-2.5 py-0.5 rounded-full text-xs font-mono font-bold border ${colors.tagBg}`}>
@@ -69,7 +73,7 @@ export const GanttTimeline: React.FC<GanttTimelineProps> = ({
               )}
             </div>
             <p className={`text-xs ${colors.textMuted} mt-0.5`}>
-              Visual timeline showing which process gets the CPU at every time unit
+              Visual execution timeline showing process runs, context switches (CS), and CPU idle periods
             </p>
           </div>
         </div>
@@ -186,13 +190,33 @@ export const GanttTimeline: React.FC<GanttTimelineProps> = ({
                 />
               ))}
 
-              {/* Render Process Execution Segments */}
-              {cleanSegments.map((segment) => {
+              {/* Render All Segments (Processes, CS, IDLE) */}
+              {segments.map((segment) => {
                 const leftPos = segment.startTick * zoomLevel;
-                const width = Math.max(4, (segment.endTick - segment.startTick) * zoomLevel);
+                const width = Math.max(3, (segment.endTick - segment.startTick) * zoomLevel);
                 const isIdle = segment.isIdle || segment.processId === 'IDLE';
+                const isCS = segment.isContextSwitch || segment.processId === 'CS';
                 const isSelected = selectedProcessId && segment.processId === selectedProcessId;
 
+                // Render Context Switch (CS) block
+                if (isCS) {
+                  return (
+                    <div
+                      key={segment.id}
+                      style={{ left: `${leftPos}px`, width: `${width}px` }}
+                      className="absolute top-1 bottom-1 rounded-lg border border-rose-500/60 bg-rose-600/80 text-white font-mono text-xs font-bold flex items-center justify-center overflow-hidden shadow-[0_0_8px_rgba(239,68,68,0.4)] backdrop-blur-xs z-10"
+                      title={`Context Switch Overhead (Time ${segment.startTick} to ${segment.endTick})`}
+                      onMouseEnter={() => setHoveredSegment(segment)}
+                      onMouseLeave={() => setHoveredSegment(null)}
+                    >
+                      <span className="truncate px-1 text-[10px] font-extrabold tracking-tighter text-rose-100">
+                        CS
+                      </span>
+                    </div>
+                  );
+                }
+
+                // Render CPU Idle block
                 if (isIdle) {
                   return (
                     <div
@@ -200,12 +224,15 @@ export const GanttTimeline: React.FC<GanttTimelineProps> = ({
                       style={{ left: `${leftPos}px`, width: `${width}px` }}
                       className={`absolute top-1 bottom-1 rounded-lg border border-dashed ${colors.border} flex items-center justify-center text-xs font-mono ${colors.textMuted} overflow-hidden bg-white/5 backdrop-blur-xs`}
                       title={`CPU Idle (Time ${segment.startTick} to ${segment.endTick})`}
+                      onMouseEnter={() => setHoveredSegment(segment)}
+                      onMouseLeave={() => setHoveredSegment(null)}
                     >
                       <span className="truncate px-1 opacity-70 font-semibold text-[11px]">IDLE</span>
                     </div>
                   );
                 }
 
+                // Render Process execution block
                 return (
                   <div
                     key={segment.id}
@@ -251,13 +278,13 @@ export const GanttTimeline: React.FC<GanttTimelineProps> = ({
               }}
             />
             <span className="font-extrabold text-sm text-cyan-300">
-              {hoveredSegment.processId}
+              {hoveredSegment.processId === 'CS' ? 'Context Switch (CS Overhead)' : hoveredSegment.processId === 'IDLE' ? 'CPU Idle Period' : hoveredSegment.processId}
             </span>
           </div>
 
           <div className={`flex flex-wrap items-center gap-3 ${colors.textMuted}`}>
             <span>Start: <strong className={colors.textPrimary}>{hoveredSegment.startTick}</strong></span>
-            <span>Finish: <strong className={colors.textPrimary}>{hoveredSegment.endTick}</strong></span>
+            <span>End: <strong className={colors.textPrimary}>{hoveredSegment.endTick}</strong></span>
             <span>Duration: <strong className="text-cyan-400 font-bold">{hoveredSegment.endTick - hoveredSegment.startTick} time units</strong></span>
           </div>
         </div>
@@ -286,6 +313,11 @@ export const GanttTimeline: React.FC<GanttTimelineProps> = ({
               </span>
             </button>
           ))}
+
+          <span className="flex items-center gap-1.5 font-medium ml-1">
+            <span className="w-3.5 h-3 rounded bg-rose-600 border border-rose-400 text-[9px] text-white flex items-center justify-center font-bold">CS</span>
+            Context Switch
+          </span>
 
           <span className="flex items-center gap-1.5 font-medium ml-1">
             <span className={`w-3.5 h-3 rounded border border-dashed ${colors.border}`} />

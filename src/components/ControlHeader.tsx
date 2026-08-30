@@ -7,9 +7,8 @@ import {
   BarChart3, 
   BookOpen, 
   Clock, 
-  Sparkles,
-  Sliders,
-  HelpCircle
+  ChevronRight,
+  ChevronLeft
 } from 'lucide-react';
 import { AlgorithmType, PriorityOrder } from '../types/scheduler';
 import { useTheme, ThemeMode } from '../context/ThemeContext';
@@ -129,11 +128,11 @@ export const ControlHeader: React.FC<ControlHeaderProps> = ({
               ⚡
             </div>
             <div>
-              <h1 className={`text-xl sm:text-2xl font-extrabold tracking-tight font-sans ${colors.textPrimary}`}>
-                CPU Scheduler
+              <h1 className={`text-2xl sm:text-3xl font-extrabold tracking-tight font-sans ${colors.textPrimary}`}>
+                CPU Scheduler Simulator
               </h1>
-              <p className={`text-xs ${colors.textMuted} mt-0.5 font-medium`}>
-                Interactive operating system scheduling simulator with step-by-step calculations
+              <p className={`text-xs sm:text-sm ${colors.textMuted} mt-0.5 font-medium`}>
+                Interactive operating system scheduling platform with step-by-step calculations and visual decision explanations
               </p>
             </div>
           </div>
@@ -189,7 +188,7 @@ export const ControlHeader: React.FC<ControlHeaderProps> = ({
       <div className={`p-4 sm:p-5 rounded-2xl border ${colors.border} ${colors.bgCard} shadow-md transition-all`}>
         <div className="flex flex-wrap items-center justify-between gap-3 mb-3.5">
           <div className="flex items-center gap-2">
-            <h2 className={`text-sm font-bold uppercase tracking-wider ${colors.textPrimary}`}>
+            <h2 className={`text-sm sm:text-base font-bold uppercase tracking-wider ${colors.textPrimary} font-sans`}>
               Choose Scheduling Algorithm
             </h2>
           </div>
@@ -338,7 +337,7 @@ export const ControlHeader: React.FC<ControlHeaderProps> = ({
       {/* Playback Controls & Time Banner */}
       <div className={`p-4 rounded-2xl border ${colors.border} ${colors.bgCard} shadow-md flex flex-wrap items-center justify-between gap-3`}>
         
-        {/* Left: Playback Controls */}
+        {/* Left: Playback Controls (Play, Step Backward, Step Forward, Reset, Solve Instantly) */}
         <div className="flex flex-wrap items-center gap-2">
 
           {/* Play / Pause */}
@@ -362,6 +361,31 @@ export const ControlHeader: React.FC<ControlHeaderProps> = ({
               </>
             )}
           </button>
+
+          {/* Step Backward */}
+          {onStepBackward && (
+            <button
+              onClick={onStepBackward}
+              disabled={currentTick === 0}
+              className={`p-2.5 px-3 rounded-xl border ${colors.border} ${colors.bgInput} font-bold text-xs flex items-center gap-1 hover:brightness-110 active:scale-95 transition-all disabled:opacity-40 disabled:cursor-not-allowed ${colors.textSecondary}`}
+              title="Step Backward -1 tick"
+            >
+              <ChevronLeft className="w-4 h-4" />
+              <span>Step Back</span>
+            </button>
+          )}
+
+          {/* Step Forward */}
+          {onStepForward && (
+            <button
+              onClick={onStepForward}
+              className="p-2.5 px-3.5 rounded-xl border border-cyan-500/40 bg-cyan-600/20 text-cyan-300 font-bold text-xs flex items-center gap-1.5 hover:bg-cyan-600/30 active:scale-95 transition-all shadow-[0_0_10px_rgba(6,182,212,0.2)]"
+              title="Advance simulation by +1 time unit to observe decision"
+            >
+              <span>Step (+1 Tick)</span>
+              <ChevronRight className="w-4 h-4 text-cyan-400" />
+            </button>
+          )}
 
           {/* Reset */}
           <button
@@ -423,4 +447,3 @@ export const ControlHeader: React.FC<ControlHeaderProps> = ({
     </header>
   );
 };
-

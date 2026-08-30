@@ -16,12 +16,14 @@ import {
 import { ThemeProvider, useTheme } from './context/ThemeContext';
 import { ControlHeader } from './components/ControlHeader';
 import { ProcessInputTable } from './components/ProcessInputTable';
+import { SchedulerDecisionPanel } from './components/SchedulerDecisionPanel';
 import { GanttTimeline } from './components/GanttTimeline';
 import { StateQueues } from './components/StateQueues';
 import { ProcessLifecyclePipeline } from './components/ProcessLifecyclePipeline';
 import { AnalyticsDashboard } from './components/AnalyticsDashboard';
 import { ComparisonModal } from './components/ComparisonModal';
 import { TheoryModal } from './components/TheoryModal';
+import { HelpCircle, Play, ChevronRight, BarChart3 } from 'lucide-react';
 
 function SchedulerApp() {
   const { colors } = useTheme();
@@ -29,6 +31,7 @@ function SchedulerApp() {
   // Configuration Settings State
   const [algorithm, setAlgorithm] = useState<AlgorithmType>('RR');
   const [quantum, setQuantum] = useState<number>(3);
+  const [contextSwitchTime, setContextSwitchTime] = useState<number>(0);
   const [enableAging, setEnableAging] = useState<boolean>(true);
   const [agingThreshold, setAgingThreshold] = useState<number>(6);
   const [priorityBoost, setPriorityBoost] = useState<number>(1);
@@ -53,13 +56,14 @@ function SchedulerApp() {
   const getSimulationConfig = useCallback((): SimulationConfig => ({
     numCores: 1,
     quantum,
-    contextSwitchTime: 0,
+    contextSwitchTime,
     enableAging,
     agingThreshold,
     priorityBoost,
     priorityOrder,
   }), [
     quantum,
+    contextSwitchTime,
     enableAging,
     agingThreshold,
     priorityBoost,
@@ -174,6 +178,20 @@ function SchedulerApp() {
     setHistoryStack([]);
   };
 
+  // Handle Context Switch Time Change
+  const handleChangeContextSwitchTime = (cs: number) => {
+    setContextSwitchTime(cs);
+    const config = { ...getSimulationConfig(), contextSwitchTime: cs };
+    const fresh = resetSimulation(
+      customProcesses ? null : activePreset,
+      customProcesses,
+      algorithm,
+      config
+    );
+    setSimState(fresh);
+    setHistoryStack([]);
+  };
+
   // Handle Aging Toggle
   const handleToggleAging = () => {
     const nextAging = !enableAging;
@@ -266,24 +284,71 @@ function SchedulerApp() {
           onOpenCompare={() => setIsComparisonOpen(true)}
         />
 
+        {/* Initial Starter Guide Banner (When at Tick 0) */}
+        {simState.currentTick === 0 && !simState.isPlaying && (
+          <div className={`p-4 sm:p-5 rounded-2xl border border-cyan-500/30 bg-cyan-500/10 text-cyan-200 shadow-md space-y-2.5 font-sans animate-in fade-in duration-150`}>
+            <div className="flex items-center gap-2 font-bold text-sm text-cyan-300">
+              <HelpCircle className="w-5 h-5 text-cyan-400 shrink-0" />
+              <span>How to Use the Interactive CPU Scheduling Simulator</span>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-5 gap-2.5 text-xs">
+              <div className="p-2.5 rounded-xl bg-white/5 border border-white/10 space-y-1">
+                <span className="font-bold text-cyan-300 font-mono">1. Configure</span>
+                <p className="text-[11px] opacity-85">Adjust Arrival Times, Burst Durations, or select a Preset Workload.</p>
+              </div>
+              <div className="p-2.5 rounded-xl bg-white/5 border border-white/10 space-y-1">
+                <span className="font-bold text-cyan-300 font-mono">2. Select Algo</span>
+                <p className="text-[11px] opacity-85">Choose FCFS, SJF, SRTF, Round Robin, or Priority algorithms.</p>
+              </div>
+              <div className="p-2.5 rounded-xl bg-white/5 border border-white/10 space-y-1">
+                <span className="font-bold text-cyan-300 font-mono">3. Step / Play</span>
+                <p className="text-[11px] opacity-85">Click <strong>Step (+1 Tick)</strong> to observe decisions one-by-one, or <strong>Play</strong>.</p>
+              </div>
+              <div className="p-2.5 rounded-xl bg-white/5 border border-white/10 space-y-1">
+                <span className="font-bold text-cyan-300 font-mono">4. Observe</span>
+                <p className="text-[11px] opacity-85">Read the <strong>Scheduler Decision Panel</strong> explaining why each process was chosen.</p>
+              </div>
+              <div className="p-2.5 rounded-xl bg-white/5 border border-white/10 space-y-1">
+                <span className="font-bold text-cyan-300 font-mono">5. Analyze</span>
+                <p className="text-[11px] opacity-85">Check metrics, fairness, starvation warnings, or compare all 6 algorithms.</p>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* 2. Process Input Table */}
         <ProcessInputTable
           processes={simState.processes}
           onChangeProcesses={handleProcessesChange}
+          contextSwitchTime={contextSwitchTime}
+          onChangeContextSwitchTime={handleChangeContextSwitchTime}
         />
 
-        {/* Gantt Timeline */}
+        {/* 3. Scheduler Decision Explanation Panel */}
+        <SchedulerDecisionPanel
+          decision={simState.latestDecision}
+          algorithm={algorithm}
+          currentTick={simState.currentTick}
+          processes={simState.processes}
+          cores={simState.cores}
+          totalPreemptions={simState.totalPreemptions}
+          totalContextSwitches={simState.totalContextSwitches}
+          onSelectProcess={(p) => setSelectedProcessId(p.id)}
+        />
+
+        {/* 4. Gantt Timeline */}
         <GanttTimeline
           cores={simState.cores}
           processes={simState.processes}
           ganttHistory={simState.ganttHistory}
           currentTick={simState.currentTick}
           algorithm={algorithm}
+          contextSwitchTime={contextSwitchTime}
           selectedProcessId={selectedProcessId}
           onSelectProcessId={(id) => setSelectedProcessId(id)}
         />
 
-        {/* Process Lifecycle State Flow */}
+        {/* 5. Process Lifecycle State Flow */}
         <ProcessLifecyclePipeline
           processes={simState.processes}
           cores={simState.cores}
@@ -292,7 +357,7 @@ function SchedulerApp() {
           onSelectProcess={(p) => setSelectedProcessId(p.id)}
         />
 
-        {/* State Transition Queues (Ready Queue & Completed Processes) */}
+        {/* 6. State Transition Queues (Ready Queue & Completed Processes) */}
         <StateQueues
           processes={simState.processes}
           algorithm={algorithm}
@@ -302,16 +367,21 @@ function SchedulerApp() {
           onSelectProcess={(p) => setSelectedProcessId(p.id)}
         />
 
-        {/* Performance Analytics & Calculation Results */}
+        {/* 7. Performance Analytics & Calculation Results */}
         <div className="w-full">
           <AnalyticsDashboard
             processes={simState.processes}
             cores={simState.cores}
             currentTick={simState.currentTick}
             algorithm={algorithm}
-            contextSwitchTime={0}
+            quantum={quantum}
+            contextSwitchTime={contextSwitchTime}
             enableAging={enableAging}
+            agingThreshold={agingThreshold}
+            priorityBoost={priorityBoost}
+            priorityOrder={priorityOrder}
             totalContextSwitches={simState.totalContextSwitches}
+            totalPreemptions={simState.totalPreemptions}
             ganttHistory={simState.ganttHistory}
             isCompleted={simState.isCompleted}
             selectedProcessId={selectedProcessId}
@@ -328,7 +398,7 @@ function SchedulerApp() {
         processes={simState.processes}
         numCores={1}
         quantum={quantum}
-        contextSwitchTime={0}
+        contextSwitchTime={contextSwitchTime}
         enableAging={enableAging}
         agingThreshold={agingThreshold}
         priorityBoost={priorityBoost}

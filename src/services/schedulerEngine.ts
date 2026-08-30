@@ -9,6 +9,7 @@ import {
   AlgorithmComparisonResult,
   PriorityOrder,
   PresetScenario,
+  SchedulerDecision,
 } from '../types/scheduler';
 import { createCores } from '../data/presets';
 
@@ -53,7 +54,7 @@ export function selectNextProcess(
 
     case 'PRIORITY_NP':
     case 'PRIORITY_P':
-      // Priority first (using dynamic priority if aged), then arrival time
+      // Priority first (using dynamic priority if aged), then arrival time, then ID
       return [...candidates].sort((a, b) => {
         if (a.currentPriority !== b.currentPriority) {
           return priorityOrder === 'LOWER_IS_HIGHER'
@@ -75,6 +76,92 @@ export function selectNextProcess(
     default:
       return candidates[0];
   }
+}
+
+// Generate educational explanation for why a scheduling decision was made
+export function buildDecisionExplanation(
+  tick: number,
+  selectedProcess: Process | null,
+  readyPool: Process[],
+  algorithm: AlgorithmType,
+  priorityOrder: PriorityOrder,
+  isIdle: boolean,
+  isSwitching: boolean,
+  switchingToId: string | null
+): string {
+  if (isSwitching && switchingToId) {
+    return `CPU is executing a Context Switch to prepare process ${switchingToId}.`;
+  }
+
+  if (isIdle || !selectedProcess) {
+    if (readyPool.length === 0) {
+      return `CPU is idle because no processes are currently available in the Ready Queue at Time = ${tick}.`;
+    }
+    return `CPU is idle while waiting for process arrival or context switch completion.`;
+  }
+
+  const p = selectedProcess;
+  switch (algorithm) {
+    case 'FCFS':
+      return `${p.id} selected because it arrived earliest in the system (at Time = ${p.arrivalTime}).`;
+
+    case 'SJF':
+      return `${p.id} selected because it has the shortest total CPU burst time (${p.burstTime} units) among all ready processes.`;
+
+    case 'SRTF':
+      return `${p.id} selected because it has the shortest remaining CPU execution burst (${p.remainingTime} units left).`;
+
+    case 'RR': {
+      const enqueueTime = p.readyEnqueueTick !== undefined ? p.readyEnqueueTick : p.arrivalTime;
+      return `${p.id} selected because it is next in line in the circular Round Robin ready queue (enqueued at Time = ${enqueueTime}).`;
+    }
+
+    case 'PRIORITY_NP':
+    case 'PRIORITY_P': {
+      const priText = priorityOrder === 'LOWER_IS_HIGHER' ? `lower value ${p.currentPriority} = higher priority` : `higher value ${p.currentPriority} = higher priority`;
+      return `${p.id} selected because it has the highest scheduling priority (${priText}).`;
+    }
+
+    default:
+      return `${p.id} dispatched to CPU for execution.`;
+  }
+}
+
+// Calculate Jain's Fairness Index: (Sum(WT)^2) / (N * Sum(WT^2))
+export function calculateFairnessIndex(processes: Process[]): number {
+  const active = processes.filter((p) => p.state !== 'UNARRIVED');
+  if (active.length === 0) return 1.0;
+
+  const waitTimes = active.map((p) => p.waitingTime);
+  const sumWT = waitTimes.reduce((acc, val) => acc + val, 0);
+  const sumSqWT = waitTimes.reduce((acc, val) => acc + (val * val), 0);
+
+  if (sumSqWT === 0) return 1.0; // All waiting times are 0 -> perfect fairness
+
+  const fairness = (sumWT * sumWT) / (active.length * sumSqWT);
+  return Number(fairness.toFixed(3));
+}
+
+// Detect potential starvation among ready/active processes
+export function getStarvationWarnings(processes: Process[], currentTick: number): string[] {
+  const warnings: string[] = [];
+  const activeProcs = processes.filter((p) => p.state !== 'UNARRIVED' && p.state !== 'COMPLETED');
+  if (activeProcs.length <= 1) return warnings;
+
+  const waitTimes = processes.filter(p => p.state !== 'UNARRIVED').map(p => p.waitingTime);
+  const avgWT = waitTimes.length > 0 ? waitTimes.reduce((a, b) => a + b, 0) / waitTimes.length : 0;
+
+  processes.forEach((p) => {
+    if (p.state === 'READY') {
+      const currentWait = Math.max(0, currentTick - p.arrivalTime - (p.burstTime - p.remainingTime));
+      // Starvation condition: waited > 15 units OR > 2.5x the average waiting time of completed/active jobs
+      if (currentWait >= 15 || (avgWT > 0 && currentWait >= avgWT * 2.5 && currentWait > 8)) {
+        warnings.push(`Possible starvation detected: ${p.id} has been waiting in Ready Queue for ${currentWait} time units.`);
+      }
+    }
+  });
+
+  return warnings;
 }
 
 // Calculate KPIs (Key Performance Indicators)
@@ -103,16 +190,23 @@ export function calculateKPIs(
   let totalTAT = 0;
   let totalRT = 0;
   let rtCount = 0;
+  let maxWT = 0;
 
   processes.forEach((p) => {
+    let effectiveWT = p.waitingTime;
+    let effectiveTAT = p.turnaroundTime;
+
     if (p.state === 'COMPLETED') {
       totalWT += p.waitingTime;
       totalTAT += p.turnaroundTime;
+      maxWT = Math.max(maxWT, p.waitingTime);
     } else if (p.state !== 'UNARRIVED') {
-      const effectiveTAT = currentTick - p.arrivalTime;
+      effectiveTAT = Math.max(0, currentTick - p.arrivalTime);
       const executed = p.burstTime - p.remainingTime;
-      totalWT += Math.max(0, effectiveTAT - executed);
-      totalTAT += Math.max(0, effectiveTAT);
+      effectiveWT = Math.max(0, effectiveTAT - executed);
+      totalWT += effectiveWT;
+      totalTAT += effectiveTAT;
+      maxWT = Math.max(maxWT, effectiveWT);
     }
 
     if (p.responseTime !== null) {
@@ -138,6 +232,9 @@ export function calculateKPIs(
     coreUtilization[c.id] = makespan > 0 ? Number(((c.busyTicks / makespan) * 100).toFixed(1)) : 0;
   });
 
+  const fairnessIndex = calculateFairnessIndex(processes);
+  const starvationWarnings = getStarvationWarnings(processes, currentTick);
+
   return {
     avgWaitingTime,
     avgTurnaroundTime,
@@ -147,9 +244,13 @@ export function calculateKPIs(
     completedCount: completed.length,
     totalCount: processes.length,
     totalContextSwitches,
+    totalPreemptions: 0, // Computed dynamically in state
     totalIdleTime,
     totalExecutionTime,
     makespan,
+    maxWaitingTime: maxWT,
+    fairnessIndex,
+    starvationWarnings,
     coreUtilization,
   };
 }
@@ -188,6 +289,14 @@ export function resetSimulation(
     lastExecutedCoreId: null,
   }));
 
+  const initialDecision: SchedulerDecision = {
+    tick: 0,
+    selectedProcessId: null,
+    selectedProcessName: null,
+    reason: `Simulation initialized with ${initialProcesses.length} processes using ${algorithm}. Press Play or Step to start.`,
+    readyQueueSnapshot: [],
+  };
+
   return {
     currentTick: 0,
     isPlaying: false,
@@ -211,8 +320,11 @@ export function resetSimulation(
         message: `Simulation initialized with ${initialProcesses.length} processes on ${config.numCores} CPU core(s) using ${algorithm}.`,
       },
     ],
+    latestDecision: initialDecision,
+    decisionHistory: [initialDecision],
     isCompleted: false,
     totalContextSwitches: 0,
+    totalPreemptions: 0,
   };
 }
 
@@ -276,15 +388,19 @@ export function tickSimulation(prevState: SimulationState): SimulationState {
   let cores = prevState.cores.map((c) => ({ ...c }));
   let ganttHistory = [...prevState.ganttHistory];
   let logs: SystemLog[] = [...prevState.logs];
+  let totalPreemptions = prevState.totalPreemptions;
+  let eventLogMessage = '';
 
   // 1. Process Arrivals
   processes = processes.map((p) => {
     if (p.state === 'UNARRIVED' && p.arrivalTime <= currentTick) {
+      const arrMsg = `Time ${currentTick}: Process ${p.id} arrived and entered Ready Queue (Burst: ${p.burstTime}u, Pri: ${p.priority})`;
+      eventLogMessage += arrMsg + ' ';
       logs.unshift({
         id: `log-arr-${p.id}-${currentTick}`,
         tick: currentTick,
         level: 'info',
-        message: `Process ${p.id} arrived in Ready Queue (Burst: ${p.burstTime}t, Pri: ${p.priority})`,
+        message: arrMsg,
         processId: p.id,
       });
       return {
@@ -304,11 +420,13 @@ export function tickSimulation(prevState: SimulationState): SimulationState {
     if (p.state === 'BLOCKED') {
       const nextBlocked = p.blockedRemaining - 1;
       if (nextBlocked <= 0) {
+        const unblockMsg = `Process ${p.id} finished I/O and returned to READY queue`;
+        eventLogMessage += unblockMsg + ' ';
         logs.unshift({
           id: `log-unblock-${p.id}-${currentTick}`,
           tick: currentTick,
           level: 'success',
-          message: `Process ${p.id} finished I/O and returned to READY queue`,
+          message: unblockMsg,
           processId: p.id,
         });
         return {
@@ -375,7 +493,7 @@ export function tickSimulation(prevState: SimulationState): SimulationState {
         if (prevState.algorithm === 'RR') {
           if (runningProc.quantumRemaining <= 0 && readyPool.length > 0) {
             shouldPreempt = true;
-            preemptionReason = `Quantum (${prevState.quantum}t) reached, yields to next process`;
+            preemptionReason = `Quantum (${prevState.quantum}u) reached, yields CPU to next process`;
           }
         }
 
@@ -384,7 +502,7 @@ export function tickSimulation(prevState: SimulationState): SimulationState {
           const shorterProcess = readyPool.find((p) => p.remainingTime < runningProc.remainingTime);
           if (shorterProcess) {
             shouldPreempt = true;
-            preemptionReason = `Preempted by shorter remaining job ${shorterProcess.id} (${shorterProcess.remainingTime}t < ${runningProc.remainingTime}t)`;
+            preemptionReason = `Preempted by shorter remaining job ${shorterProcess.id} (${shorterProcess.remainingTime}u < ${runningProc.remainingTime}u)`;
           }
         }
 
@@ -400,6 +518,7 @@ export function tickSimulation(prevState: SimulationState): SimulationState {
         }
 
         if (shouldPreempt) {
+          totalPreemptions += 1;
           logs.unshift({
             id: `log-preempt-${runningProc.id}-${currentTick}`,
             tick: currentTick,
@@ -425,10 +544,16 @@ export function tickSimulation(prevState: SimulationState): SimulationState {
   );
 
   let totalCS = prevState.totalContextSwitches;
+  let activeSelectedProcess: Process | null = null;
+  let isCoreIdle = false;
+  let isCoreSwitching = false;
+  let switchingToId: string | null = null;
 
   cores.forEach((core) => {
     // A. If core is in Context Switch
     if (core.isSwitching) {
+      isCoreSwitching = true;
+      switchingToId = core.switchingToProcessId;
       core.contextSwitchRemaining -= 1;
       core.contextSwitchTicks += 1;
 
@@ -450,6 +575,7 @@ export function tickSimulation(prevState: SimulationState): SimulationState {
         if (assignedProc) {
           assignedProc.state = 'RUNNING';
           assignedProc.currentCoreId = core.id;
+          activeSelectedProcess = assignedProc;
           if (assignedProc.startTime === null) {
             assignedProc.startTime = currentTick + 1;
             assignedProc.responseTime = assignedProc.startTime - assignedProc.arrivalTime;
@@ -464,6 +590,7 @@ export function tickSimulation(prevState: SimulationState): SimulationState {
     if (core.assignedProcessId) {
       const proc = processes.find((p) => p.id === core.assignedProcessId);
       if (proc) {
+        activeSelectedProcess = proc;
         if (proc.startTime === null) {
           proc.startTime = currentTick;
           proc.responseTime = proc.startTime - proc.arrivalTime;
@@ -538,12 +665,15 @@ export function tickSimulation(prevState: SimulationState): SimulationState {
 
     if (nextProc) {
       claimedProcessIds.add(nextProc.id);
+      activeSelectedProcess = nextProc;
 
       const isDifferentProcess = core.previousProcessId !== null && core.previousProcessId !== nextProc.id;
       const csOverhead = isDifferentProcess ? prevState.contextSwitchTime : 0;
 
       if (csOverhead > 0) {
         core.isSwitching = true;
+        isCoreSwitching = true;
+        switchingToId = nextProc.id;
         core.contextSwitchRemaining = csOverhead;
         core.switchingToProcessId = nextProc.id;
         core.previousProcessId = nextProc.id;
@@ -629,6 +759,7 @@ export function tickSimulation(prevState: SimulationState): SimulationState {
         }
       }
     } else {
+      isCoreIdle = true;
       core.idleTicks += 1;
       ganttHistory = addGanttSegment(
         ganttHistory,
@@ -642,6 +773,34 @@ export function tickSimulation(prevState: SimulationState): SimulationState {
       );
     }
   });
+
+  const updatedReadyQueue = processes.filter((p) => p.state === 'READY').map((p) => ({
+    id: p.id,
+    name: p.name,
+    remainingTime: p.remainingTime,
+    priority: p.currentPriority,
+    arrivalTime: p.arrivalTime,
+  }));
+
+  const decisionReason = buildDecisionExplanation(
+    currentTick,
+    activeSelectedProcess,
+    processes.filter((p) => p.state === 'READY'),
+    prevState.algorithm,
+    prevState.priorityOrder,
+    isCoreIdle,
+    isCoreSwitching,
+    switchingToId
+  );
+
+  const decisionObj: SchedulerDecision = {
+    tick: currentTick,
+    selectedProcessId: activeSelectedProcess ? (activeSelectedProcess as Process).id : isCoreSwitching ? 'CS' : 'IDLE',
+    selectedProcessName: activeSelectedProcess ? (activeSelectedProcess as Process).name : isCoreSwitching ? 'Context Switch' : 'CPU Idle',
+    reason: decisionReason,
+    readyQueueSnapshot: updatedReadyQueue,
+    eventLog: eventLogMessage.trim() || undefined,
+  };
 
   const allFinished = processes.every((p) => p.state === 'COMPLETED');
   if (allFinished && !prevState.isCompleted) {
@@ -660,8 +819,11 @@ export function tickSimulation(prevState: SimulationState): SimulationState {
     cores,
     ganttHistory,
     logs: logs.slice(0, 100),
+    latestDecision: decisionObj,
+    decisionHistory: [decisionObj, ...prevState.decisionHistory].slice(0, 50),
     isCompleted: allFinished,
     totalContextSwitches: totalCS,
+    totalPreemptions,
   };
 }
 
@@ -724,8 +886,11 @@ export function runAlgorithmHeadless(
     })),
     ganttHistory: [],
     logs: [],
+    latestDecision: null,
+    decisionHistory: [],
     isCompleted: false,
     totalContextSwitches: 0,
+    totalPreemptions: 0,
   };
 
   let ticks = 0;
@@ -735,6 +900,7 @@ export function runAlgorithmHeadless(
   }
 
   const kpis = calculateKPIs(state.processes, state.cores, state.currentTick, state.totalContextSwitches);
+  kpis.totalPreemptions = state.totalPreemptions;
 
   const ALGO_NAMES: Record<AlgorithmType, string> = {
     FCFS: 'First-Come, First-Served (FCFS)',

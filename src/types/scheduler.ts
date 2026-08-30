@@ -80,6 +80,15 @@ export interface SystemLog {
   processId?: string;
 }
 
+export interface SchedulerDecision {
+  tick: number;
+  selectedProcessId: string | null;
+  selectedProcessName: string | null;
+  reason: string;
+  readyQueueSnapshot: { id: string; name: string; remainingTime: number; priority: number; arrivalTime: number }[];
+  eventLog?: string;
+}
+
 export interface SimulationKPIs {
   avgWaitingTime: number;
   avgTurnaroundTime: number;
@@ -89,9 +98,13 @@ export interface SimulationKPIs {
   completedCount: number;
   totalCount: number;
   totalContextSwitches: number;
+  totalPreemptions: number;
   totalIdleTime: number;
   totalExecutionTime: number;
   makespan: number;            // Total clock ticks to finish
+  maxWaitingTime: number;
+  fairnessIndex: number;       // Jain's Fairness Index (0 to 1)
+  starvationWarnings: string[];
   coreUtilization: Record<string, number>;
 }
 
@@ -111,8 +124,11 @@ export interface SimulationState {
   processes: Process[];
   ganttHistory: GanttSegment[];
   logs: SystemLog[];
+  latestDecision: SchedulerDecision | null;
+  decisionHistory: SchedulerDecision[];
   isCompleted: boolean;
   totalContextSwitches: number;
+  totalPreemptions: number;
 }
 
 export interface SimulationConfig {
@@ -161,3 +177,4 @@ export interface AlgorithmComparisonResult {
   processes: Process[];
   finalTick: number;
 }
+
